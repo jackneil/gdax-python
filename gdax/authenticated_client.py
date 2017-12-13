@@ -10,9 +10,10 @@ import time
 import requests
 import base64
 import json
+import itertools
 from requests.auth import AuthBase
-from gdax.public_client import PublicClient
-from gdax.gdax_auth import GdaxAuth
+from public_client import PublicClient
+from gdax_auth import GdaxAuth
 
 
 class AuthenticatedClient(PublicClient):
@@ -23,69 +24,76 @@ class AuthenticatedClient(PublicClient):
     def get_account(self, account_id):
         r = requests.get(self.url + '/accounts/' + account_id, auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def get_accounts(self):
-        return self.get_account('')
+        #return self.get_account('')
+        #return [i.encode('ascii','ignore') for i in self.get_account('')]
+        #acts = self.get_account('')
+        return self.ascii_encode(self.get_account(''))
 
     def get_account_history(self, account_id):
         result = []
         r = requests.get(self.url + '/accounts/{}/ledger'.format(account_id), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        result.append(r.json())
+        result.append(self.ascii_encode(r.json()))
         if "cb-after" in r.headers:
             self.history_pagination(account_id, result, r.headers["cb-after"])
-        return result
+        return self.ascii_encode(result)
 
     def history_pagination(self, account_id, result, after):
         r = requests.get(self.url + '/accounts/{}/ledger?after={}'.format(account_id, str(after)), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        if r.json():
-            result.append(r.json())
+        if self.ascii_encode(r.json()):
+            result.append(self.ascii_encode(r.json()))
         if "cb-after" in r.headers:
             self.history_pagination(account_id, result, r.headers["cb-after"])
-        return result
+        return self.ascii_encode(result)
 
     def get_account_holds(self, account_id):
         result = []
         r = requests.get(self.url + '/accounts/{}/holds'.format(account_id), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        result.append(r.json())
+        result.append(self.ascii_encode(r.json()))
         if "cb-after" in r.headers:
             self.holds_pagination(account_id, result, r.headers["cb-after"])
-        return result
+        return self.ascii_encode(result)
 
     def holds_pagination(self, account_id, result, after):
         r = requests.get(self.url + '/accounts/{}/holds?after={}'.format(account_id, str(after)), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        if r.json():
-            result.append(r.json())
+        if self.ascii_encode(r.json()):
+            result.append(self.ascii_encode(r.json()))
         if "cb-after" in r.headers:
             self.holds_pagination(account_id, result, r.headers["cb-after"])
-        return result
+        return self.ascii_encode(result)
 
     def buy(self, **kwargs):
         kwargs["side"] = "buy"
+        kwargs["size"] = "{:.8f}".format(float(kwargs["size"]))
         if "product_id" not in kwargs:
             kwargs["product_id"] = self.product_id
         r = requests.post(self.url + '/orders',
                           data=json.dumps(kwargs),
                           auth=self.auth,
                           timeout=30)
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def sell(self, **kwargs):
         kwargs["side"] = "sell"
+        kwargs["size"] = "{:.8f}".format(float(kwargs["size"]))
+        if "product_id" not in kwargs:
+            kwargs["product_id"] = self.product_id
         r = requests.post(self.url + '/orders',
                           data=json.dumps(kwargs),
                           auth=self.auth,
                           timeout=30)
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def cancel_order(self, order_id):
         r = requests.delete(self.url + '/orders/' + order_id, auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def cancel_all(self, product_id=''):
         url = self.url + '/orders/'
@@ -93,12 +101,12 @@ class AuthenticatedClient(PublicClient):
             url += "?product_id={}&".format(str(product_id))
         r = requests.delete(url, auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def get_order(self, order_id):
         r = requests.get(self.url + '/orders/' + order_id, auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def get_orders(self, product_id='', status=[]):
         result = []
@@ -110,10 +118,10 @@ class AuthenticatedClient(PublicClient):
             params["status"] = status
         r = requests.get(url, auth=self.auth, params=params, timeout=30)
         # r.raise_for_status()
-        result.append(r.json())
+        result.append(self.ascii_encode(r.json()))
         if 'cb-after' in r.headers:
             self.paginate_orders(product_id, status, result, r.headers['cb-after'])
-        return result
+        return self.ascii_encode(result) #list(itertools.chain.from_iterable(result))
 
     def paginate_orders(self, product_id, status, result, after):
         url = self.url + '/orders'
@@ -127,11 +135,11 @@ class AuthenticatedClient(PublicClient):
             params["status"] = status
         r = requests.get(url, auth=self.auth, params=params, timeout=30)
         # r.raise_for_status()
-        if r.json():
-            result.append(r.json())
+        if self.ascii_encode(r.json()):
+            result.append(self.ascii_encode(r.json()))
         if 'cb-after' in r.headers:
-            self.paginate_orders(product_id, result, r.headers['cb-after'])
-        return result
+            self.paginate_orders(product_id, status, result, r.headers['cb-after'])
+        return self.ascii_encode(result)
 
     def get_fills(self, order_id='', product_id='', before='', after='', limit=''):
         result = []
@@ -148,10 +156,10 @@ class AuthenticatedClient(PublicClient):
             url += "limit={}&".format(str(limit))
         r = requests.get(url, auth=self.auth, timeout=30)
         # r.raise_for_status()
-        result.append(r.json())
-        if 'cb-after' in r.headers and limit is not len(r.json()):
+        result.append(self.ascii_encode(r.json()))
+        if 'cb-after' in r.headers and limit is not len(self.ascii_encode(r.json())):
             return self.paginate_fills(result, r.headers['cb-after'], order_id=order_id, product_id=product_id)
-        return result
+        return self.ascii_encode(result)
 
     def paginate_fills(self, result, after, order_id='', product_id=''):
         url = self.url + '/fills?after={}&'.format(str(after))
@@ -161,11 +169,11 @@ class AuthenticatedClient(PublicClient):
             url += "product_id={}&".format(product_id)
         r = requests.get(url, auth=self.auth, timeout=30)
         # r.raise_for_status()
-        if r.json():
-            result.append(r.json())
+        if self.ascii_encode(r.json()):
+            result.append(self.ascii_encode(r.json()))
         if 'cb-after' in r.headers:
             return self.paginate_fills(result, r.headers['cb-after'], order_id=order_id, product_id=product_id)
-        return result
+        return self.ascii_encode(result)
 
     def get_fundings(self, result='', status='', after=''):
         if not result:
@@ -177,7 +185,7 @@ class AuthenticatedClient(PublicClient):
             url += 'after={}&'.format(str(after))
         r = requests.get(url, auth=self.auth, timeout=30)
         # r.raise_for_status()
-        result.append(r.json())
+        result.append(self.ascii_encode(r.json()))
         if 'cb-after' in r.headers:
             return self.get_fundings(result, status=status, after=r.headers['cb-after'])
         return result
@@ -189,7 +197,7 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/funding/repay", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def margin_transfer(self, margin_profile_id="", transfer_type="", currency="", amount=""):
         payload = {
@@ -200,12 +208,12 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/profiles/margin-transfer", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def get_position(self):
         r = requests.get(self.url + "/position", auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def close_position(self, repay_only=""):
         payload = {
@@ -213,7 +221,7 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/position/close", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def deposit(self, amount="", currency="", payment_method_id=""):
         payload = {
@@ -223,7 +231,7 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/deposits/payment-method", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def coinbase_deposit(self, amount="", currency="", coinbase_account_id=""):
         payload = {
@@ -233,7 +241,7 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/deposits/coinbase-account", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def withdraw(self, amount="", currency="", payment_method_id=""):
         payload = {
@@ -243,7 +251,7 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/withdrawals/payment-method", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def coinbase_withdraw(self, amount="", currency="", coinbase_account_id=""):
         payload = {
@@ -253,7 +261,7 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/withdrawals/coinbase", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def crypto_withdraw(self, amount="", currency="", crypto_address=""):
         payload = {
@@ -263,17 +271,17 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/withdrawals/crypto", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def get_payment_methods(self):
         r = requests.get(self.url + "/payment-methods", auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def get_coinbase_accounts(self):
         r = requests.get(self.url + "/coinbase-accounts", auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def create_report(self, report_type="", start_date="", end_date="", product_id="", account_id="", report_format="",
                       email=""):
@@ -288,14 +296,14 @@ class AuthenticatedClient(PublicClient):
         }
         r = requests.post(self.url + "/reports", data=json.dumps(payload), auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def get_report(self, report_id=""):
         r = requests.get(self.url + "/reports/" + report_id, auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())
 
     def get_trailing_volume(self):
         r = requests.get(self.url + "/users/self/trailing-volume", auth=self.auth, timeout=30)
         # r.raise_for_status()
-        return r.json()
+        return self.ascii_encode(r.json())

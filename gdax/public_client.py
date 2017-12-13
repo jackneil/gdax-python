@@ -5,6 +5,7 @@
 # For public requests to the GDAX exchange
 
 import requests
+import collections
 
 
 class PublicClient(object):
@@ -32,8 +33,19 @@ class PublicClient(object):
 
         r = requests.get(self.url + path, params=params, timeout=30)
         # r.raise_for_status()
-        return r.json()
-
+        return self.ascii_encode(r.json())
+    
+    def ascii_encode(self, data):
+        if isinstance(data, str):
+            return str(data)
+        elif isinstance(data, collections.Mapping):
+            return dict(map(self.ascii_encode, data.items()))
+        elif isinstance(data, collections.Iterable):
+            return type(data)(map(self.ascii_encode, data))
+        else:
+            return data
+        #return [{k.encode('ascii'): v for k, v in list(original).items()} for original in thelist]
+    
     def get_products(self):
         """Get a list of available currency pairs for trading.
 
