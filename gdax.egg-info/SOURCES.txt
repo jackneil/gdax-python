@@ -1,0 +1,14 @@
+README.md
+setup.cfg
+setup.py
+gdax/__init__.py
+gdax/authenticated_client.py
+gdax/gdax_auth.py
+gdax/order_book.py
+gdax/public_client.py
+gdax/websocket_client.py
+gdax.egg-info/PKG-INFO
+gdax.egg-info/SOURCES.txt
+gdax.egg-info/dependency_links.txt
+gdax.egg-info/requires.txt
+gdax.egg-info/top_level.txt

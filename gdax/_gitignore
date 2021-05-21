@@ -1,0 +1,5 @@
+*.pyc
+FixClient.py
+build\
+dist\
+__pycache__\
